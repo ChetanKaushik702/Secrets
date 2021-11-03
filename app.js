@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const validator = require('validator');
 
 
 const app = express();
@@ -26,8 +27,20 @@ mongoose.connect(process.env.MONGODB_URL)
 .catch(err => console.log(err));
 
 const userSchema = new mongoose.Schema({
-    email: String,
-    password: String
+    username: {
+        type: String,
+        required: true,
+        trim: true,
+        lowercase: true,
+        validate(value) {
+            if (!validator.isEmail(value)) {
+                throw new Error('Email is invalid!');
+            }
+        }
+    },
+    password: {
+        type: String
+    }
 });
 
 userSchema.plugin(passportLocalMongoose);
