@@ -10,6 +10,7 @@ const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
 
+app.use(express.static(__dirname + '/public'));
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({extended: true}));
 
@@ -27,9 +28,10 @@ mongoose.connect(process.env.MONGODB_URL)
 .catch(err => console.log(err));
 
 const userSchema = new mongoose.Schema({
-    email: String,
+    username: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -56,7 +58,7 @@ passport.use(new GoogleStrategy({
     passReqToCallback: true
   },
   (request, accessToken, refreshToken, profile, done) => {
-    User.findOrCreate({ googleId: profile.id }, (err, user) => {
+    User.findOrCreate({ username: profile.email, googleId: profile.id }, (err, user) => {
       return done(err, user);
     });
   }
@@ -91,11 +93,38 @@ app.get("/logout", (req, res) => {
 })
 
 app.get('/secrets', (req, res) => {
+    User.find({"secrets": {$ne: null}}, (err, foundUsers) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (foundUsers) {
+                res.render('secrets', {userWithSecrets: foundUsers});
+            }
+        }
+    })
+})
+
+app.get('/submit', (req, res) => {
     if (req.isAuthenticated()) {
-        res.render('secrets');
+        res.render('submit');
     } else {
         res.redirect('/login');
     }
+})
+
+app.post('/submit', (req, res) => {
+    const secret = req.body.secret;
+    User.findById(req.user.id, (err, foundUser) => {
+        if (err) {
+            console.log(err);
+            window.alert('An unexpected error occured at the server!\nPlease share the secret again.');
+            res.redirect('/submit');
+        } else {
+            foundUser.secret = secret;
+            foundUser.save();
+            res.redirect('/secrets');
+        }
+    })
 })
 
 app.post('/register', (req, res) => {
